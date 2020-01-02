@@ -169,6 +169,7 @@ func main() {
 			log.Fatal(err)
 		}
 		newAPIKey = strings.Replace(newAPIKey, "\n", "", -1)
+		newAPIKey = strings.Replace(newAPIKey, "\r", "", -1)
 		conf.APIKey = newAPIKey
 	}
 	apikey := conf.APIKey
@@ -183,6 +184,7 @@ func main() {
 			log.Fatal(err)
 		}
 		summonerName = strings.Replace(summonerName, "\n", "", -1)
+		summonerName = strings.Replace(summonerName, "\r", "", -1)
 		conf.SummonerName = summonerName
 	}
 
