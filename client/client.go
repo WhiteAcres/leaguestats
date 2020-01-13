@@ -2,10 +2,11 @@ package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"github.com/WhiteAcres/leaguestats/config"
 )
 
 // Client - League API Client Object
@@ -48,19 +49,19 @@ type Matchlist struct {
 
 // Match - info regarding a partiular match
 type Match struct {
-	// SeasonID              int64
-	// QueueID               int64
-	// GameID                int64
-	// ParticipantIdentities []ParticipantIdentity
-	// GameVersion           string
-	// PlatformID            string
-	// GameMode              string
-	// MapID                 int64
-	// GameType              string
-	// Teams                 []TeamStats
-	Participants []Participant
-	GameDuration int64
-	GameCreation int64
+	SeasonID              int64
+	QueueID               int64
+	GameID                int64
+	ParticipantIdentities []ParticipantIdentity
+	GameVersion           string
+	PlatformID            string
+	GameMode              string
+	MapID                 int64
+	GameType              string
+	Teams                 []TeamStats
+	Participants          []Participant
+	GameDuration          int64
+	GameCreation          int64
 }
 
 // ParticipantIdentity - info regarding paricipant identity
@@ -259,31 +260,53 @@ type Mastery struct {
 	Rank     int64
 }
 
-// GetSummonerInfo - Gets Summoner Info from League API
-func (c *Client) GetSummonerInfo(name string) (*SummonerInfo, error) {
-	// Creating the url
-	rel := &url.URL{Path: "/lol/summoner/v4/summoners/by-name/" + name}
-	u := c.BaseURL.ResolveReference(rel)
-	q, _ := url.ParseQuery(u.RawQuery)
-	q.Add("api_key", c.APIKey)
-	u.RawQuery = q.Encode()
+// LeagueAPIRequest sends request to League API
+func (c *Client) LeagueAPIRequest(method string, u *url.URL) ([]byte, error) {
+	resp := &http.Response{}
+	for {
+		// Add api key to url
+		q, _ := url.ParseQuery(u.RawQuery)
+		q.Add("api_key", c.APIKey)
+		u.RawQuery = q.Encode()
 
-	// Creating the request
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "application/json")
+		// Creating the request
+		req, err := http.NewRequest(method, u.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Accept", "application/json")
 
-	// Sending the request
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
+		// Sending the request
+		resp, err = c.HTTPClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != 403 {
+			break
+		}
+		APIKey := config.GetNewAPIKey("API Key was unauthorized (probably expired)")
+		c.APIKey = APIKey
+		updates := map[string]string{"APIKey": APIKey}
+		config.UpdateConfig(updates)
 	}
 
 	// Translating response
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+// GetSummonerInfo - Gets Summoner Info from League API
+func (c *Client) GetSummonerInfo(name string) (*SummonerInfo, error) {
+	// Creating the url
+	rel := &url.URL{Path: "/lol/summoner/v4/summoners/by-name/" + name}
+	u := c.BaseURL.ResolveReference(rel)
+
+	// Creating the request
+	body, err := c.LeagueAPIRequest("GET", u)
 	if err != nil {
 		return nil, err
 	}
@@ -300,26 +323,8 @@ func (c *Client) GetMatchList(accountID string) (*Matchlist, error) {
 	// Creating the url
 	rel := &url.URL{Path: "/lol/match/v4/matchlists/by-account/" + accountID}
 	u := c.BaseURL.ResolveReference(rel)
-	q, _ := url.ParseQuery(u.RawQuery)
-	q.Add("api_key", c.APIKey)
-	u.RawQuery = q.Encode()
 
-	// Creating the request
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "application/json")
-
-	// Sending the request
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// Translating response
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := c.LeagueAPIRequest("GET", u)
 	if err != nil {
 		return nil, err
 	}
@@ -334,40 +339,15 @@ func (c *Client) GetMatchList(accountID string) (*Matchlist, error) {
 // GetMatch - gets match information
 func (c *Client) GetMatch(matchID string) (*Match, error) {
 	// Creating the url
-	fmt.Println(matchID)
 	rel := &url.URL{Path: "/lol/match/v4/matches/" + matchID}
 	u := c.BaseURL.ResolveReference(rel)
-	q, _ := url.ParseQuery(u.RawQuery)
-	q.Add("api_key", c.APIKey)
-	u.RawQuery = q.Encode()
-
-	fmt.Println(u.String())
-
-	// Creating the request
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "application/json")
-
-	// Sending the request
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println(resp.StatusCode)
-
-	// Translating response
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := c.LeagueAPIRequest("GET", u)
 	if err != nil {
 		return nil, err
 	}
 	var m Match
 	err = json.Unmarshal(body, &m)
 	if err != nil {
-		fmt.Println("third error is")
 		return nil, err
 	}
 	return &m, nil
