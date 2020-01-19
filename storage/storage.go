@@ -88,7 +88,3 @@ func (s *Storage) DeleteRecords(matches []*client.Match) {
 	}
 	s.SaveStorage()
 }
-
-// I might want to implement some sort of search functionality or maybe try to load the Storage object into a local MongoDB using a Mongo Library or something
-// I don't think I really need this, though. I'll probably want to have the search logic be included in the actual operation function in "main.go"
-// e.g. "func GetMostUsefulBan()" will implement logic to search through all matches for the current summonerName and see which champions are have the highest loss rate.
