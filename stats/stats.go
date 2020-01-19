@@ -232,7 +232,6 @@ func getChampionNamesMap(latestGameVersion string) (map[int64]string, error) {
 	lgvS0 := lgvSections[0]
 	lgvS1 := lgvSections[1]
 	urlstring := "http://ddragon.leagueoflegends.com/cdn/" + lgvS0 + "." + lgvS1 + ".1" + "/data/en_US/champion.json"
-	fmt.Println(urlstring)
 	req, err := http.NewRequest("GET", urlstring, nil)
 	if err != nil {
 		return nil, err
@@ -300,5 +299,11 @@ func GetBestBanForSummoner(s storage.Storage, summonerName string) {
 	sort.Slice(enemyChampionIDStatsList, func(i, j int) bool {
 		return enemyChampionIDStatsList[i].BanScore > enemyChampionIDStatsList[j].BanScore
 	})
-	fmt.Println(enemyChampionIDStatsList)
+	for _, eciso := range enemyChampionIDStatsList {
+		TotalMatchesString := strconv.FormatInt(eciso.TotalMatches, 10)
+		DefeatsString := strconv.FormatInt(eciso.Victories, 10)
+		WinRateString := fmt.Sprintf("%.3f", eciso.WinRate)
+		BanScoreString := fmt.Sprintf("%.3f", eciso.BanScore)
+		fmt.Println(eciso.Name + " - " + "Times Seen: " + TotalMatchesString + " Defeats: " + DefeatsString + " Enemy Win Rate: " + WinRateString + " Ban Score: " + BanScoreString)
+	}
 }
