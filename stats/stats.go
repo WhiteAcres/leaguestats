@@ -92,7 +92,7 @@ func GetLatestGameVersion(s storage.Storage) string {
 	return gameVersion
 }
 
-// GetMatches gets all the matche in storage
+// GetMatches gets all the matches in storage
 func GetMatches(s storage.Storage) []client.Match {
 	var matches []client.Match
 	data := s.Data
@@ -112,6 +112,25 @@ func GetMatchesForSummoner(s storage.Storage, summonerName string) []client.Matc
 		}
 	}
 	return summonerMatches
+}
+
+// isSR checks if a match is SR or not
+func isSR(match client.Match) bool {
+	if match.QueueID != 840 && match.GameMode == "CLASSIC" {
+		return true
+	}
+	return false
+}
+
+// GetSRMatches filters the matches list to be only SR matches
+func GetSRMatches(matches []client.Match) []client.Match {
+	var SRMatches []client.Match
+	for _, match := range matches {
+		if isSR(match) {
+			SRMatches = append(SRMatches, match)
+		}
+	}
+	return SRMatches
 }
 
 // GetVictoryMatchesForSummoner gets all the victory matches for a summoner
@@ -158,8 +177,8 @@ func GetDefeatMatchesForSummoner(s storage.Storage, summonerName string) []clien
 	return summonerDefeatMatches
 }
 
-// GetEnemyChampionCountsInMatchesForSummoner returns count of all champions that summoner played against
-func GetEnemyChampionCountsInMatchesForSummoner(summonerName string, matches []client.Match) map[int64]int64 {
+// GetEnemyChampionCountsInMatches returns count of all champions that summoner played against
+func GetEnemyChampionCountsInMatches(summonerName string, matches []client.Match) map[int64]int64 {
 	enemyChampCounts := make(map[int64]int64)
 	for _, match := range matches {
 		participantTeamMap := make(map[int64]*teamChampionPair)
@@ -261,13 +280,15 @@ func getChampionNamesMap(latestGameVersion string) (map[int64]string, error) {
 	return championNamesMap, nil
 }
 
-// GetBestBanForSummoner does a thing
+// GetBestBanForSummoner gets the best ban for the summoner
 func GetBestBanForSummoner(s storage.Storage, summonerName string) {
 	summonerMatches := GetMatchesForSummoner(s, summonerName)
-	enemyChampCounts := GetEnemyChampionCountsInMatchesForSummoner(summonerName, summonerMatches)
+	summonerSRMatches := GetSRMatches(summonerMatches)
+	enemyChampCounts := GetEnemyChampionCountsInMatches(summonerName, summonerSRMatches)
 
 	summonerDefeatMatches := GetDefeatMatchesForSummoner(s, summonerName)
-	enemyChampVictoryCounts := GetEnemyChampionCountsInMatchesForSummoner(summonerName, summonerDefeatMatches)
+	summonerDefeatSRMatches := GetSRMatches(summonerDefeatMatches)
+	enemyChampVictoryCounts := GetEnemyChampionCountsInMatches(summonerName, summonerDefeatSRMatches)
 
 	enemyChampWinRates := getChampionWinRates(enemyChampCounts, enemyChampVictoryCounts)
 	enemyChampionBanScores := calculateChampionBanScores(enemyChampCounts, enemyChampWinRates)

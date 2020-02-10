@@ -2,9 +2,12 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"time"
 
 	"github.com/WhiteAcres/leaguestats/config"
 )
@@ -272,6 +275,7 @@ func (c *Client) LeagueAPIRequest(method string, u *url.URL) ([]byte, error) {
 		// Creating the request
 		req, err := http.NewRequest(method, u.String(), nil)
 		if err != nil {
+			fmt.Println(err)
 			return nil, err
 		}
 		req.Header.Set("Accept", "application/json")
@@ -279,21 +283,34 @@ func (c *Client) LeagueAPIRequest(method string, u *url.URL) ([]byte, error) {
 		// Sending the request
 		resp, err = c.HTTPClient.Do(req)
 		if err != nil {
+			fmt.Println(err)
 			return nil, err
 		}
-		if resp.StatusCode != 403 {
+		if resp.StatusCode == 200 {
 			break
+		} else if resp.StatusCode == 403 {
+			APIKey := config.GetNewAPIKey("API Key was unauthorized (probably expired)")
+			c.APIKey = APIKey
+			updates := map[string]string{"APIKey": APIKey}
+			config.UpdateConfig(updates)
+			time.Sleep(5 * time.Second)
+		} else if resp.StatusCode == 404 {
+			fmt.Println("Invalid Summoner Name")
+			os.Exit(1)
+		} else if resp.StatusCode == 429 {
+			fmt.Println("API rate limit exceeded! Wait a few minutes, and try again.")
+			os.Exit(1)
+		} else {
+			fmt.Println("API Error")
+			fmt.Println(resp.StatusCode)
 		}
-		APIKey := config.GetNewAPIKey("API Key was unauthorized (probably expired)")
-		c.APIKey = APIKey
-		updates := map[string]string{"APIKey": APIKey}
-		config.UpdateConfig(updates)
 	}
 
 	// Translating response
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	return body, nil
@@ -308,11 +325,13 @@ func (c *Client) GetSummonerInfo(name string) (*SummonerInfo, error) {
 	// Creating the request
 	body, err := c.LeagueAPIRequest("GET", u)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	var si SummonerInfo
 	err = json.Unmarshal(body, &si)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	return &si, nil
@@ -326,11 +345,13 @@ func (c *Client) GetMatchList(accountID string) (*Matchlist, error) {
 
 	body, err := c.LeagueAPIRequest("GET", u)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	var ml Matchlist
 	err = json.Unmarshal(body, &ml)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	return &ml, nil
@@ -343,11 +364,13 @@ func (c *Client) GetMatch(matchID string) (*Match, error) {
 	u := c.BaseURL.ResolveReference(rel)
 	body, err := c.LeagueAPIRequest("GET", u)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	var m Match
 	err = json.Unmarshal(body, &m)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	return &m, nil

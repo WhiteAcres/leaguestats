@@ -28,6 +28,7 @@ func main() {
 	fmt.Print("Enter your Summoner Name:\n")
 	summonerName, err := reader.ReadString('\n')
 	if err != nil {
+		fmt.Println(err)
 		log.Fatal(err)
 	}
 	summonerName = strings.Replace(summonerName, "\n", "", -1)
@@ -42,33 +43,39 @@ func main() {
 
 	si, err := cli.GetSummonerInfo(summonerName)
 	if err != nil {
+		fmt.Println(err)
 		log.Fatal(err)
 	}
 
 	// Get the matches list
 	ml, err := cli.GetMatchList(si.AccountID)
 	if err != nil {
+		fmt.Println(err)
 		log.Fatal(err)
 	}
 
 	// Pull out all gameIDs
 	var gameIDs []int64
 	for _, match := range ml.Matches {
-		// fmt.Println(match.GameID)
 		gameIDs = append(gameIDs, match.GameID)
 	}
 
-	// Get the match information for 50 the most recent gameIDs
+	// Filter out some gameIDs
+	gameIDs = storage.FilterGameIDs(gameIDs)
+	if len(gameIDs) > 50 {
+		gameIDs = gameIDs[0:50]
+	}
+
+	// Get the match information for the gameIDs
 	var matches []*client.Match
-	for _, gameID := range gameIDs[0:50] {
+	for _, gameID := range gameIDs {
 		m, err := cli.GetMatch(strconv.FormatInt(gameID, 10))
 		if err != nil {
+			fmt.Println(err)
 			log.Fatal(err)
 		}
-		// fmt.Println(m)
 		matches = append(matches, m)
 	}
 	storage.UpsertRecords(matches)
-
 	stats.GetBestBanForSummoner(*storage, summonerName)
 }
