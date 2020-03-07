@@ -49,7 +49,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		// Get the matches list
+		// Get the 9matches list
 		ml, err := cli.GetMatchList(si.AccountID)
 		if err != nil {
 			fmt.Println(err)

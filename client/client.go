@@ -2,11 +2,11 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/WhiteAcres/leaguestats/config"
@@ -266,44 +266,36 @@ type Mastery struct {
 // LeagueAPIRequest sends request to League API
 func (c *Client) LeagueAPIRequest(method string, u *url.URL) ([]byte, error) {
 	resp := &http.Response{}
-	for {
-		// Add api key to url
-		q, _ := url.ParseQuery(u.RawQuery)
-		q.Add("api_key", c.APIKey)
-		u.RawQuery = q.Encode()
+	// Add api key to url
+	q, _ := url.ParseQuery(u.RawQuery)
+	q.Add("api_key", c.APIKey)
+	u.RawQuery = q.Encode()
 
-		// Creating the request
-		req, err := http.NewRequest(method, u.String(), nil)
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
-		req.Header.Set("Accept", "application/json")
+	// Creating the request
+	req, err := http.NewRequest(method, u.String(), nil)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
 
-		// Sending the request
-		resp, err = c.HTTPClient.Do(req)
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
-		if resp.StatusCode == 200 {
-			break
-		} else if resp.StatusCode == 403 {
-			APIKey := config.GetNewAPIKey("API Key was unauthorized (probably expired)")
-			c.APIKey = APIKey
-			updates := map[string]string{"APIKey": APIKey}
-			config.UpdateConfig(updates)
-			time.Sleep(5 * time.Second)
-		} else if resp.StatusCode == 404 {
-			fmt.Println("Invalid Summoner Name")
-			os.Exit(1)
-		} else if resp.StatusCode == 429 {
-			fmt.Println("API rate limit exceeded! Wait a few minutes, and try again.")
-			os.Exit(1)
-		} else {
-			fmt.Println("API Error")
-			fmt.Println(resp.StatusCode)
-		}
+	// Sending the request
+	resp, err = c.HTTPClient.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	} else if resp.StatusCode == 403 {
+		APIKey := config.GetNewAPIKey("API Key was unauthorized (probably expired)")
+		c.APIKey = APIKey
+		updates := map[string]string{"APIKey": APIKey}
+		config.UpdateConfig(updates)
+		time.Sleep(5 * time.Second)
+	} else if resp.StatusCode == 404 {
+		return nil, errors.New("Invalid Summoner Name")
+	} else if resp.StatusCode == 429 {
+		return nil, errors.New("API rate limit exceeded! Wait a few minutes, and try again.")
+	} else if resp.StatusCode < 200 || resp.StatusCode > 300 {
+		return nil, errors.New("API Error")
 	}
 
 	// Translating response
